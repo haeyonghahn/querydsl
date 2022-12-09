@@ -89,3 +89,5 @@ spring.jpa.properties.hibernate.use_sql_comments: true
 
 > Q클래스 인스턴스는 언제 사용할까?   
 만약, 같은 테이블을 조인할 경우에 alias가 같으면 안되므로 Q클래스 인스턴스를 사용하자. 그렇지 않은 경우에는 static impoart를 사용하여 코드를 깔끔히 정리하자.
+
+### 검색 조건 쿼리
