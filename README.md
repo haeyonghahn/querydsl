@@ -18,3 +18,37 @@
 
 ## 기본 문법
 ### JPQL vs Querydsl
+- `Parameter 바인딩` : JPQL은 setParameter로 파라미터를 바인딩해준다. QueryDsl은 JDBC에 있는 preparedstatement로 파라미터 바인딩을 자동으로 한다.
+- `오류 시점` : JPQL은 쿼리가 문자로 작성되기 떄문에 실행 시점에 오류가 발생하게 된다. 하지만 QueryDsl은 컴파일 시점에 오류를 잡아주게 된다.
+```java
+@Test
+public void startJPQL() {
+    //member1을 찾아라.
+    String qlString =
+            "select m from Member m " +
+            "where m.username = :username";
+
+    Member findMember = em.createQuery(qlString, Member.class)
+            .setParameter("username", "member1")
+            .getSingleResult();
+
+    assertThat(findMember.getUsername()).isEqualTo("member1");
+}
+```
+```java
+@Test
+public void startQuerydsl() {
+    //member1을 찾아라.
+    //other -> compileQueryDsl 실행
+    //build -> generated
+    QMember m = new QMember("m");
+
+    Member findMember = queryFactory
+            .select(m)
+            .from(m)
+            .where(m.username.eq("member1"))    //파라미터 바인딩 처리
+            .fetchOne();
+
+    assertThat(findMember.getUsername()).isEqualTo("member1");
+}
+```
