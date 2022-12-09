@@ -3,6 +3,7 @@
 * **[H2 데이터베이스 설치](#H2-데이터베이스-설치)**
 * **[기본 문법](#기본-문법)**
   * **[JPQL vs Querydsl](#JPQL-vs-Querydsl)**
+  * **[기본 Q-Type 활용](#기본-Q-Type-활용)**
 
 ## H2 데이터베이스 설치
 개발이나 테스트 용도로 가볍고 편리한 DB, 웹 화면 제공
@@ -52,3 +53,4 @@ public void startQuerydsl() {
     assertThat(findMember.getUsername()).isEqualTo("member1");
 }
 ```
+### 기본 Q-Type 활용
