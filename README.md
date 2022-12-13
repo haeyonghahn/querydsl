@@ -11,6 +11,9 @@
   * **[집합](#집합)**
   * **[조인 - 기본 조인](#조인---기본-조인)**
   * **[조인 - on 절](#조인---on-절)**
+* **[중급 문법](#중급-문법)**
+  * **[프로젝션과 결과 반환 - 기본](#프로젝션과-결과-반환---기본)**
+  * **[(중요)프로젝션과 결과 반환 - DTO 조회](#(중요)프로젝션과-결과-반환---DTO-조회)**
 
 ## H2 데이터베이스 설치
 개발이나 테스트 용도로 가볍고 편리한 DB, 웹 화면 제공
@@ -438,3 +441,50 @@ t=[Member(id=6, username=member4, age=40), null]
 t=[Member(id=7, username=teamA, age=0), Team(id=1, name=teamA)]
 t=[Member(id=8, username=teamB, age=0), Team(id=2, name=teamB)]
 ```
+
+## 중급 문법
+### 프로젝션과 결과 반환 - 기본
+프로젝션이란 select절에 뭘 가져올지 대상을 지정하는 것을 말한다.    
+
+__프로젝션 대상이 하나__
+```java
+@Test
+public void simpleProjection() {
+    List<String> result = queryFactory
+            .select(member.username)
+            .from(member)
+            .fetch();
+
+    for(String s : result) {
+        System.out.println("s = " + s);
+    }
+}
+```
+- 프로젝션 대상이 하나면 타입을 명확하게 지정할 수 있음
+- 프로젝션 대상이 둘 이상이면 튜플이나 DTO로 조회
+
+__튜플 조회__    
+프로젝션 대상이 둘 이상일 때 사용   
+`com.querydsl.core.Tuple`
+```java
+@Test
+public void tupleProjection() {
+    List<Tuple> result = queryFactory
+            .select(member.username, member.age)
+            .from(member)
+            .fetch();
+
+    for(Tuple tuple : result) {
+        String username = tuple.get(member.username);
+        Integer age = tuple.get(member.age);
+        System.out.println("username = " + username);
+        System.out.println("age = " + age);
+    }
+}
+```
+> 참고 : QueryDsl에 종속적인 Tuple을 Repository 계층에서 사용하는 것은 괜찮다. 하지만 Repository 계층을 넘어서서 Service 계층이나 Controller까지 넘어가는 것은 
+좋은 설계가 아니다. JDBC나 JPA를 비즈니스 로직이 알면 좋지 않은 것처럼. JDBC나 JPA에서 반환해주는 ResultSet을 Repository나 DAO 계층 안에서만 쓰도록 하고 
+나머지 계층에서는 의존도가 없도록 하는 것이 좋은 설계이다. 이렇게 사용한다면 하부 기술을 QueryDsl에서 다른 것으로 바꾸더라도 Controller나 Service 계층을 바꿀 필요가 없게 된다.
+결국, Tuple은 Repository계층에서 사용하고 Dto로 변환하여 사용하는 것이 올바른 방법이다.
+
+### (중요)프로젝션과 결과 반환 - DTO 조회
