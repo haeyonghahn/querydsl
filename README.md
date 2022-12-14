@@ -488,3 +488,4 @@ public void tupleProjection() {
 결국, Tuple은 Repository계층에서 사용하고 Dto로 변환하여 사용하는 것이 올바른 방법이다.
 
 ### (중요)프로젝션과 결과 반환 - DTO 조회
+__순수 JPA에서 DTO 조회__
