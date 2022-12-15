@@ -489,3 +489,97 @@ public void tupleProjection() {
 
 ### (중요)프로젝션과 결과 반환 - DTO 조회
 __순수 JPA에서 DTO 조회__
+```java
+@Test
+public void findDtoByJPQL() {
+//        List<MemberDto> result =
+//            em.createQuery("select m from Member m", MemberDto.class)
+//            .getResultList(); 타입이 안맞아서 오류 발생.
+    List<MemberDto> result = em.createQuery(
+    "select new study.querydsl.dto.MemberDto(m.username, m.age)" +
+            "from Member m", MemberDto.class)
+        .getResultList();
+
+    for(MemberDto memberDto : result) {
+        System.out.println("memberDto =" + memberDto);
+    }
+}
+```
+- 순수 JPA에서 DTO를 조회할 때는 new 명령어를 사용해야함
+- DTO의 package이름을 다 적어줘야해서 지저분함
+- 생성자 방식만 지원함
+
+__Querydsl 빈 생성(Bean population)__    
+__프로퍼티 접근 - Setter__
+```java
+@Test
+public void findDtoBySetter() {
+    List<MemberDto> result = queryFactory
+            .select(Projections.bean(MemberDto.class,
+                    member.username,
+                    member.age))
+            .from(member)
+            .fetch();
+
+    for(MemberDto memberDto : result) {
+        System.out.println("memberDto =" + memberDto);
+    }
+}
+```
+__필드 직접 접근__
+```java
+@Test
+public void findDtoByField() {
+    List<MemberDto> result = queryFactory
+            .select(Projections.fields(MemberDto.class,   //필드에 값을 바로 꽂아버린다
+                    member.username,
+                    member.age))
+            .from(member)
+            .fetch();
+
+    for(MemberDto memberDto : result) {
+        System.out.println("memberDto =" + memberDto);
+    }
+}
+```
+__별칭이 다를 때__
+```java
+@Test
+public void findUserDto() {
+    QMember memberSub = new QMember("memberSub");
+
+    List<UserDto> result = queryFactory
+            .select(Projections.fields(UserDto.class,
+                    member.username.as("name"),
+                    ExpressionUtils.as(JPAExpressions
+                        .select(memberSub.age.max())
+                        .from(memberSub), "age")
+            ))
+            .from(member)
+            .fetch();
+
+    for(UserDto userDto : result) {
+        System.out.println("userDto =" + userDto);
+    }
+}
+```
+- 프로퍼티나 필드 접근 생성 방식에서 이름이 다를 때 해결 방안
+- `ExpressionUtils.as(source, alias)` : 필드나 서브 쿼리에 별칭 사용
+- `username.as("memberName")` : 필드에 별칭 사용
+
+__생성자 사용__
+```java
+@Test
+public void findDtoByConstructor() {
+    List<MemberDto> result = queryFactory
+            .select(Projections.constructor(MemberDto.class,    //필드 타입이 맞아야한다
+                    member.username,
+                    member.age))
+            .from(member)
+            .fetch();
+
+    for(MemberDto memberDto : result) {
+        System.out.println("memberDto =" + memberDto);
+    }
+}
+```
