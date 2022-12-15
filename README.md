@@ -688,3 +688,37 @@ public void findDtoByConstructor() {
 ```
 
 ### 프로젝션과 결과 반환 - @QueryProjection
+```java
+@Data
+@NoArgsConstructor
+public class MemberDto {
+
+    private String username;
+    private int age;
+
+    @QueryProjection
+    public MemberDto(String username, int age) {
+        this.username = username;
+        this.age = age;
+    }
+}
+```
+```java
+@Test
+public void findDtoByQueryProjection() {
+    List<MemberDto> result = queryFactory
+            .select(new QMemberDto(member.username, member.age))
+            .from(member)
+            .fetch();
+
+    for(MemberDto memberDto : result) {
+        System.out.println("memberDto = " + memberDto);
+    }
+}
+```
+- `./gradlew compileQuerydsl`
+- `QMemberDto` 생성 확인
+
+이 방법은 컴파일러로 타입을 체크할 수 있으므로 가장 안전한 방법이다. 다만 DTO에 QueryDSL 어노테이션을 유지해야 하는 점과 DTO까지 Q파일을 생성해야 하는 단점이 있다.
+> 참고 : DTO는 Repository에서 DTO를 조회한 다음에 Service에서도 사용하고 Controller에서도 사용한다. 심지어 API로 반환하기도 한다. 여러 Layer에 걸쳐 사용된다. 그런데 
+DTO에 QueryDSL의 어노테이션이 적용되어 있다 보니 순수한 DTO가 아니라는 점이 단점이다. (의존 관계의 문제) 그래서 DTO를 깔끔하게 가져가고 싶을 때 꺼림직한 느낌이 든다.
