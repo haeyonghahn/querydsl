@@ -6,6 +6,7 @@
   * **[기본 Q-Type 활용](#기본-Q-Type-활용)**
   * **[검색 조건 쿼리](#검색-조건-쿼리)**
   * **[결과 조회](#결과-조회)**
+  * **[distinct](#distinct)**
   * **[정렬](#정렬)**
   * **[페이징](#페이징)**
   * **[집합](#집합)**
@@ -192,6 +193,14 @@ public void resultFetch() {
     //그래서 이때는 totalCount를 가져오는 것과 content를 가져오는 쿼리 두 방을 따로 날려야 한다.
 }
 ```
+### distinct
+```java
+List<String> result = queryFactory
+  .select(member.username).distinct()
+  .from(member)
+  .fetch();
+```
+
 ### 정렬
 ```java
 /**
