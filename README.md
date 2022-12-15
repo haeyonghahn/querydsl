@@ -11,9 +11,11 @@
   * **[집합](#집합)**
   * **[조인 - 기본 조인](#조인---기본-조인)**
   * **[조인 - on 절](#조인---on-절)**
+  * **[서브 쿼리](#서브-쿼리)**
 * **[중급 문법](#중급-문법)**
   * **[프로젝션과 결과 반환 - 기본](#프로젝션과-결과-반환---기본)**
   * **[(중요)프로젝션과 결과 반환 - DTO 조회](#(중요)프로젝션과-결과-반환---DTO-조회)**
+  * **[프로젝션과 결과 반환 - @QueryProjection](#프로젝션과-결과-반환---@QueryProjection)**
 
 ## H2 데이터베이스 설치
 개발이나 테스트 용도로 가볍고 편리한 DB, 웹 화면 제공
@@ -441,6 +443,107 @@ t=[Member(id=6, username=member4, age=40), null]
 t=[Member(id=7, username=teamA, age=0), Team(id=1, name=teamA)]
 t=[Member(id=8, username=teamB, age=0), Team(id=2, name=teamB)]
 ```
+### 서브 쿼리
+`com.querydsl.jpa.JPAExpressions` 사용
+```java
+/**
+ * 나이가 가장 많은 회원 조회
+ */
+@Test
+public void subQuery() {
+    QMember memberSub = new QMember("memberSub");
+
+    List<Member> result = queryFactory
+            .selectFrom(member)
+            .where(member.age.eq(
+                    select(memberSub.age.max())
+                            .from(memberSub)
+            ))
+            .fetch();
+
+    assertThat(result).extracting("age")
+            .containsExactly(40);
+}
+```
+```java
+/**
+ * 나이가 평균 나이 이상인 회원
+ */
+@Test
+public void subQueryGoe() {
+    QMember memberSub = new QMember("memberSub");
+
+    List<Member> result = queryFactory
+            .selectFrom(member)
+            .where(member.age.goe(
+                    select(memberSub.age.avg())
+                            .from(memberSub)
+            ))
+            .fetch();
+
+    assertThat(result).extracting("age")
+            .containsExactly(30, 40);
+}
+```
+```java
+/**
+ * 서브쿼리 여러 건 처리, in 사용
+ */
+@Test
+public void subQueryIn() {
+    QMember memberSub = new QMember("memberSub");
+
+    List<Member> result = queryFactory
+            .selectFrom(member)
+            .where(member.age.in(
+                    select(memberSub.age)
+                            .from(memberSub)
+                            .where(memberSub.age.gt(10))
+            ))
+            .fetch();
+
+    assertThat(result).extracting("age")
+            .containsExactly(20, 30, 40);
+}
+```
+```java
+@Test
+public void selectSubQuery() {
+    QMember memberSub = new QMember("memberSub");
+
+    List<Tuple> fetch = queryFactory
+            .select(member.username,
+                    select(memberSub.age.avg())
+                    .from(memberSub)
+            ).from(member)
+            .fetch();
+
+    for(Tuple tuple : fetch) {
+        System.out.println("username = " + tuple.get(member.username));
+    }
+}
+```
+__static import 사용__
+```java
+import static com.querydsl.jpa.JPAExpressions.select;
+
+List<Member> result = queryFactory
+  .selectFrom(member)
+  .where(member.age.eq(
+         select(memberSub.age.max())
+         .from(memberSub)
+   ))
+   .fetch();
+```
+__from 절의 서브쿼리 한계__    
+JPA JPQL 서브쿼리의 한계점으로 from 절의 서브쿼리(인라인 뷰)는 지원하지 않는다.   
+당연히 Querydsl도 지원하지 않는다. 하이버네이트 구현체를 사용하면 select 절의 서브 쿼리는 지원한다. Querydsl도 하이버네이트 구현체를 사용하면
+select 절의 서브쿼리를 지원한다.   
+
+__from 절의 서브쿼리 해결방안__
+1. 서브쿼리를 join으로 변경한다.(가능한 상황도 있고 불가능한 상황도 있다.)
+2. 애플리케이션에서 쿼리를 2번 분리해서 실행한다.
+3. nativeSQL을 사용한다.
 
 ## 중급 문법
 ### 프로젝션과 결과 반환 - 기본
@@ -583,3 +686,5 @@ public void findDtoByConstructor() {
     }
 }
 ```
+
+### 프로젝션과 결과 반환 - @QueryProjection
