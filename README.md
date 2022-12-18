@@ -18,6 +18,7 @@
   * **[(중요)프로젝션과 결과 반환 - DTO 조회](#(중요)프로젝션과-결과-반환---DTO-조회)**
   * **[프로젝션과 결과 반환 - @QueryProjection](#프로젝션과-결과-반환---@QueryProjection)**
   * **[동적 쿼리 - BooleanBuilder 사용](#동적-쿼리---BooleanBuilder-사용)**
+  * **[동적 쿼리 - Where 다중 파라미터 사용](#동적-쿼리---Where-다중-파라미터-사용)**
   * **[수정, 삭제 벌크 연산](#수정,-삭제-벌크-연산)**
 
 ## H2 데이터베이스 설치
@@ -736,7 +737,8 @@ DTO에 QueryDSL의 어노테이션이 적용되어 있다 보니 순수한 DTO�
 
 ### 동적 쿼리 - BooleanBuilder 사용
 __동적 쿼리를 해결하는 두가지 방식__    
-__BooleanBuilder__    
+- BooleanBuilder
+- Where 다중 파라미터 사용
 ```java
 @Test
 public void dynamicQuery_BooleanBuilder() {
@@ -761,7 +763,7 @@ private List<Member> searchMember1(String usernameCond, Integer ageCond) {
             .fetch();
 }
 ```
-__동적 쿼리 - Where 다중 파라미터 사용__    
+### 동적 쿼리 - Where 다중 파라미터 사용  
 ```java
 @Test
 public void dynamicQuery_whereParam() {
