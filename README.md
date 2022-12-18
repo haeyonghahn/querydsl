@@ -20,6 +20,7 @@
   * **[동적 쿼리 - BooleanBuilder 사용](#동적-쿼리---BooleanBuilder-사용)**
   * **[동적 쿼리 - Where 다중 파라미터 사용](#동적-쿼리---Where-다중-파라미터-사용)**
   * **[수정, 삭제 벌크 연산](#수정,-삭제-벌크-연산)**
+  * **[SQL function 호출하기](#SQL-function-호출하기)**
 
 ## H2 데이터베이스 설치
 개발이나 테스트 용도로 가볍고 편리한 DB, 웹 화면 제공
@@ -850,3 +851,46 @@ public void bulkDelete() {
 ```
 > 주의 : JPQL 배치와 마찬가지로, 영속성 컨텍스트에 있는 엔티티를 무시하고 실행되기 때문에 배치 쿼리를
 실행하고 나면 영속성 컨텍스트를 초기화 하는 것이 안전하다.
+
+### SQL function 호출하기
+SQL function은 JPA와 같이 Dialect에 등록된 내용만 호출할 수 있다.    
+![image](https://user-images.githubusercontent.com/31242766/208306822-90a9c025-b029-4c66-b30d-f7ca9b276cee.png)   
+![image](https://user-images.githubusercontent.com/31242766/208306828-b9338574-ceac-45ff-92ea-cfbe92bca255.png)
+
+"member"라는 단어를 "M"으로 변경하는 replace 함수 사용
+```java
+@Test
+public void sqlFunction() {
+    List<String> result = queryFactory
+            .select(Expressions.stringTemplate(
+                    "function('replace', {0}, {1}, {2})",
+                    member.username, "member", "M"))
+            .from(member)
+            .fetch();
+
+    for(String s : result) {
+        System.out.println("s = " + s);
+    }
+}
+```
+소문자로 변경해서 비교해라.
+```java
+@Test
+public void sqlFunction2() {
+    List<String> result = queryFactory
+            .select(member.username)
+            .from(member)
+//          .where(member.username.eq(
+//                  Expressions.stringTemplate("function('lower', {0})", member.username)))
+            .where(member.username.eq(member.username.lower()))
+            .fetch();
+
+    for(String s : result) {
+        System.out.println("s = " + s);
+    }
+}
+```
+lower 같은 ansi 표준 함수들은 querydsl이 상당부분 내장하고 있다. 따라서 다음과 같이 처리해도 결과는 같다.
+```java
+.where(member.username.eq(member.username.lower()))
+```
