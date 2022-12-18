@@ -12,6 +12,7 @@
   * **[집합](#집합)**
   * **[조인 - 기본 조인](#조인---기본-조인)**
   * **[조인 - on 절](#조인---on-절)**
+  * **[조인 - 페치 조인](#조인 ---페치-조인)**
   * **[서브 쿼리](#서브-쿼리)**
 * **[중급 문법](#중급-문법)**
   * **[프로젝션과 결과 반환 - 기본](#프로젝션과-결과-반환---기본)**
@@ -456,6 +457,48 @@ t=[Member(id=6, username=member4, age=40), null]
 t=[Member(id=7, username=teamA, age=0), Team(id=1, name=teamA)]
 t=[Member(id=8, username=teamB, age=0), Team(id=2, name=teamB)]
 ```
+### 조인 - 페치 조인
+페치 조인은 SQL에서 제공하는 기능은 아니다. SQL조인을 활용해서 연관된 엔티티를 SQL 한번에 조회하는 기능이다. 주로 성능 최적화에 사용하는 방법이다.      
+
+__페치 조인 미적용__    
+지연로딩으로 Member, Team SQL 쿼리 각각 실행
+```java
+@PersistenceUnit
+EntityManagerFactory emf;
+
+@Test
+public void fetchJoinNo() {
+    em.flush();
+    em.clear();
+
+    Member findMember = queryFactory
+            .selectFrom(member)
+            .where(member.username.eq("member1"))
+            .fetchOne();
+
+    boolean loaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+    assertThat(loaded).as("패치 조인 미적용").isFalse();
+}
+```
+__페치 조인 적용__
+```java
+@Test
+public void fetchJoinUse() {
+    em.flush();
+    em.clear();
+
+    Member findMember = queryFactory
+            .selectFrom(member)
+            .join(member.team, team).fetchJoin()
+            .where(member.username.eq("member1"))
+            .fetchOne();
+
+    boolean loaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+    assertThat(loaded).as("패치 조인 적용").isTrue();
+}
+```
+- `join()`, `leftJoin()` 등 조인 기능 뒤에 fetchJoin() 이라고 추가하면 된다.
+
 ### 서브 쿼리
 `com.querydsl.jpa.JPAExpressions` 사용
 ```java
