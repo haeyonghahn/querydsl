@@ -18,6 +18,7 @@
   * **[(중요)프로젝션과 결과 반환 - DTO 조회](#(중요)프로젝션과-결과-반환---DTO-조회)**
   * **[프로젝션과 결과 반환 - @QueryProjection](#프로젝션과-결과-반환---@QueryProjection)**
   * **[동적 쿼리 - BooleanBuilder 사용](#동적-쿼리---BooleanBuilder-사용)**
+  * **[수정, 삭제 벌크 연산](#수정,-삭제-벌크-연산)**
 
 ## H2 데이터베이스 설치
 개발이나 테스트 용도로 가볍고 편리한 DB, 웹 화면 제공
@@ -798,3 +799,52 @@ private BooleanExpression allEq(String usernameCond, Integer ageCond) {
 }
 ```
 - null 체크는 주의해서 처리해야함
+
+### 수정, 삭제 벌크 연산
+__쿼리 한번으로 대량 데이터 수정__
+```java
+@Test
+@Commit
+public void bulkUpdate() {
+    long count = queryFactory
+            .update(member)
+            .set(member.username, "비회원")
+            .where(member.age.lt(28))
+            .execute();
+
+    em.flush();
+    em.clear();
+
+    List<Member> result = queryFactory
+            .selectFrom(member)
+            .fetch();
+
+    for(Member member : result) {
+        System.out.println("member = " + member);
+    }
+}
+```
+__기존 숫자에 1 더하기__
+```java
+@Test
+public void bulkAdd() {
+    long count = queryFactory
+            .update(member)
+            .set(member.age, member.age.add(1))
+            .execute();
+}
+```
+- 곱하기 : `multiply(x)`
+
+__쿼리 한번으로 대량 데이터 삭제__
+```java
+@Test
+public void bulkDelete() {
+    long count = queryFactory
+            .delete(member)
+            .where(member.age.gt(18))
+            .execute();
+}
+```
+> 주의 : JPQL 배치와 마찬가지로, 영속성 컨텍스트에 있는 엔티티를 무시하고 실행되기 때문에 배치 쿼리를
+실행하고 나면 영속성 컨텍스트를 초기화 하는 것이 안전하다.
