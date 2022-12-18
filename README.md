@@ -734,6 +734,67 @@ public void findDtoByQueryProjection() {
 DTO에 QueryDSL의 어노테이션이 적용되어 있다 보니 순수한 DTO가 아니라는 점이 단점이다. (의존 관계의 문제) 그래서 DTO를 깔끔하게 가져가고 싶을 때 꺼림직한 느낌이 든다.
 
 ### 동적 쿼리 - BooleanBuilder 사용
-__동적 쿼리를 해결하는 두가지 방식__
-- BooleanBuilder
-- Where 다중 파라미터 사용
+__동적 쿼리를 해결하는 두가지 방식__    
+__BooleanBuilder__    
+```java
+@Test
+public void dynamicQuery_BooleanBuilder() {
+    String usernameParam = "member1";
+    Integer ageParam = 10;
+
+    List<Member> result = searchMember1(usernameParam, ageParam);
+    assertThat(result.size()).isEqualTo(1);
+}
+
+private List<Member> searchMember1(String usernameCond, Integer ageCond) {
+    BooleanBuilder builder = new BooleanBuilder();
+    if(usernameCond != null) {
+        builder.and(member.username.eq(usernameCond));
+    }
+    if(ageCond != null) {
+        builder.and(member.age.eq(ageCond));
+    }
+    return queryFactory
+            .selectFrom(member)
+            .where(builder)
+            .fetch();
+}
+```
+__동적 쿼리 - Where 다중 파라미터 사용__    
+```java
+@Test
+public void dynamicQuery_whereParam() {
+    String usernameParam = "member1";
+    Integer ageParam = 10;
+
+    List<Member> result = searchMember2(usernameParam, ageParam);
+    assertThat(result.size()).isEqualTo(1);
+}
+
+private List<Member> searchMember2(String usernameCond, Integer ageCond) {
+    return queryFactory
+            .selectFrom(member)
+//          .where(usernameEq(usernameCond), ageEq(ageCond))
+            .where(allEq(usernameCond, ageCond))
+            .fetch();
+}
+
+private BooleanExpression usernameEq(String usernameCond) {
+    return usernameCond != null ? member.username.eq(usernameCond) : null;
+}
+
+private BooleanExpression ageEq(Integer ageCond) {
+    return ageCond != null ? member.age.eq(ageCond) : null;
+}
+```
+- where 조건에 null 값은 무시된다.
+- 메서드를 다른 쿼리에서도 재활용 할 수 있다.
+- 쿼리 자체의 가독성이 높아진다.
+
+__조합 가능__
+```java
+private BooleanExpression allEq(String usernameCond, Integer ageCond) {
+    return usernameEq(usernameCond).and(ageEq(ageCond));
+}
+```
+- null 체크는 주의해서 처리해야함
