@@ -1081,3 +1081,117 @@ JPAQueryFactory jpaQueryFactory(EntityManager em) {
 
 ### 동적 쿼리와 성능 최적화 조회 - Builder 사용
 __MemberTeamDto - 조회 최적화용 DTO 추가__   
+```java
+package study.querydsl.dto;
+
+import com.querydsl.core.annotations.QueryProjection;
+import lombok.Data;
+
+@Data
+public class MemberTeamDto {
+
+    private Long memberId;
+    private String username;
+    private int age;
+    private Long teamId;
+    private String teamName;
+
+    @QueryProjection
+    public MemberTeamDto(Long memberId, String username, int age, Long teamId, String teamName) {
+        this.memberId = memberId;
+        this.username = username;
+        this.age = age;
+        this.teamId = teamId;
+        this.teamName = teamName;
+    }
+}
+```
+- `@QueryProjection` 을 추가했다. `QMemberTeamDto` 를 생성하기 위해 `./gradlew compileQuerydsl`
+을 한번 실행하자.
+> 참고 : `@QueryProjection` 을 사용하면 해당 DTO가 Querydsl을 의존하게 된다. 이런 의존이 싫으면, 
+해당 에노테이션을 제거하고, `Projection.bean()`, `fields()`, `constructor()` 을 사용하면 된다.
+
+__회원 검색 조건__   
+```java
+package study.querydsl.dto;
+
+import lombok.Data;
+
+@Data
+public class MemberSearchCondition {
+    //회원명, 팀명, 나이(ageGoe, ageLoe)
+    private String username;
+    private String teamName;
+    private Integer ageGoe;
+    private Integer ageLoe;
+    
+}
+```
+- 이름이 너무 길면 `MemberCond` 등으로 줄여 사용해도 된다.
+
+__동적쿼리 - Builder 사용__   
+```java
+import static org.springframework.util.StringUtils.hasText;
+
+public List<MemberTeamDto> searchByBuilder(MemberSearchCondition condition) {
+    BooleanBuilder builder = new BooleanBuilder();
+    //프론트에서 넘어오는 값이 null 또는 "" 식으로 넘어오는 것을 해결해준다.(StringUtils)
+    if(hasText(condition.getUsername())) {
+       builder.and(member.username.eq(condition.getUsername()));
+    }
+    if(hasText(condition.getTeamName())) {
+        builder.and(team.name.eq(condition.getTeamName()));
+    }
+    if(condition.getAgeLoe() != null) {
+        builder.and(member.age.goe(condition.getAgeGoe()));
+    }
+    if(condition.getAgeLoe() != null) {
+        builder.and(member.age.loe(condition.getAgeLoe()));
+    }
+
+    return queryFactory
+            .select(new QMemberTeamDto(
+                    member.id.as("memberId"),
+                    member.username,
+                    member.age,
+                    team.id.as("teamId"),
+                    team.name.as("teamName")
+            ))
+            .from(member)
+            .leftJoin(member.team, team)
+            .where(builder)
+            .fetch();
+    }
+```
+> 오류 정정 : 강의 영상에서는 member.id.as("memberId") 라고 적었는데, QMemberTeamDto 는 생성자를 사용하기
+때문에 필드 이름을 맞추지 않아도 된다. 따라서 member.id 만 적으면 된다.
+
+__조회 예제 테스트__    
+```java
+@Test
+public void searchTest() {
+    Team teamA = new Team("teamA");
+    Team teamB = new Team("teamB");
+    em.persist(teamA);
+    em.persist(teamB);
+
+    Member member1 = new Member("member1", 10, teamA);
+    Member member2 = new Member("member2", 20, teamA);
+
+    Member member3 = new Member("member3", 30, teamB);
+    Member member4 = new Member("member4", 40, teamB);
+    em.persist(member1);
+    em.persist(member2);
+    em.persist(member3);
+    em.persist(member4);
+
+    MemberSearchCondition condition = new MemberSearchCondition();
+    condition.setAgeGoe(35);
+    condition.setAgeLoe(40);
+    condition.setTeamName("teamB");
+
+    List<MemberTeamDto> result = memberJpaRepository.searchByBuilder(condition);
+
+    assertThat(result).extracting("username").containsExactly("member4");
+}
+```
