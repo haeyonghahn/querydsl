@@ -27,6 +27,7 @@
   * **[동적 쿼리와 성능 최적화 조회 - Builder 사용](#동적-쿼리와-성능-최적화-조회---Builder-사용)**
   * **[동적 쿼리와 성능 최적화 조회 - Where절 파라미터 사용](#동적-쿼리와-성능-최적화-조회---Where절-파라미터-사용)**
   * **[조회 API 컨트롤러 개발](#조회-API-컨트롤러-개발)**
+* **[실무 활용 - 스프링 데이터 JPA와 Querydsl](#실무-활용---스프링-데이터-JPA와-Querydsl)**
 
 ## H2 데이터베이스 설치
 개발이나 테스트 용도로 가볍고 편리한 DB, 웹 화면 제공
@@ -1359,3 +1360,5 @@ public class MemberController {
 ```
 - 예제 실행(postman)
 - `http://localhost:8080/v1/members?teamName=teamB&ageGoe=31&ageLoe=35`
+
+## 실무 활용 - 스프링 데이터 JPA와 Querydsl
