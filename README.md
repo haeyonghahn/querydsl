@@ -25,6 +25,7 @@
 * **[실무 활용 - 순수 JPA와 Querydsl](#실무-활용---순수-JPA와-Querydsl)**
   * **[순수 JPA 리포지토리와 Querydsl](#순수-JPA-리포지토리와-Querydsl)**
   * **[동적 쿼리와 성능 최적화 조회 - Builder 사용](#동적-쿼리와-성능-최적화-조회---Builder-사용)**
+  * **[동적 쿼리와 성능 최적화 조회 - Where절 파라미터 사용](#동적-쿼리와-성능-최적화-조회---Where절-파라미터-사용)**
 
 ## H2 데이터베이스 설치
 개발이나 테스트 용도로 가볍고 편리한 DB, 웹 화면 제공
@@ -1191,6 +1192,74 @@ public void searchTest() {
     condition.setTeamName("teamB");
 
     List<MemberTeamDto> result = memberJpaRepository.searchByBuilder(condition);
+
+    assertThat(result).extracting("username").containsExactly("member4");
+}
+```
+### 동적 쿼리와 성능 최적화 조회 - Where절 파라미터 사용
+__Where절에 파라미터를 사용한 예제__   
+```java
+public List<MemberTeamDto> search(MemberSearchCondition condition) {
+    return queryFactory
+            .select(new QMemberTeamDto(
+                    member.id.as("memberId"),
+                    member.username,
+                    member.age,
+                    team.id.as("teamId"),
+                    team.name.as("teamName")
+            ))
+            .from(member)
+            .leftJoin(member.team, team)
+            .where(
+                    usernameEq(condition.getUsername()),
+                    teamNameEq(condition.getTeamName()),
+                    ageGoe(condition.getAgeGoe()),
+                    ageLoe(condition.getAgeLoe())
+            )
+            .fetch();
+}
+
+private BooleanExpression usernameEq(String username) {
+    return hasText(username) ? member.username.eq(username) : null;
+}
+
+private BooleanExpression teamNameEq(String teamName) {
+    return hasText(teamName) ? team.name.eq(teamName) : null;
+}
+
+private BooleanExpression ageGoe(Integer ageGoe) {
+    return ageGoe != null ? member.age.goe(ageGoe) : null;
+}
+
+private BooleanExpression ageLoe(Integer ageLoe) {
+    return ageLoe != null ? member.age.loe(ageLoe) : null;
+}
+```
+__조회 예제 테스트__
+```java
+@Test
+public void searchTest() {
+    Team teamA = new Team("teamA");
+    Team teamB = new Team("teamB");
+    em.persist(teamA);
+    em.persist(teamB);
+
+    Member member1 = new Member("member1", 10, teamA);
+    Member member2 = new Member("member2", 20, teamA);
+
+    Member member3 = new Member("member3", 30, teamB);
+    Member member4 = new Member("member4", 40, teamB);
+    em.persist(member1);
+    em.persist(member2);
+    em.persist(member3);
+    em.persist(member4);
+
+    MemberSearchCondition condition = new MemberSearchCondition();
+    condition.setAgeGoe(35);
+    condition.setAgeLoe(40);
+    condition.setTeamName("teamB");
+
+    List<MemberTeamDto> result = memberJpaRepository.search(condition);
 
     assertThat(result).extracting("username").containsExactly("member4");
 }
