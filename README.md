@@ -30,6 +30,8 @@
   * **[동적 쿼리와 성능 최적화 조회 - Where절 파라미터 사용](#동적-쿼리와-성능-최적화-조회---Where절-파라미터-사용)**
   * **[조회 API 컨트롤러 개발](#조회-API-컨트롤러-개발)**
 * **[실무 활용 - 스프링 데이터 JPA와 Querydsl](#실무-활용---스프링-데이터-JPA와-Querydsl)**
+  * **[스프링 데이터 JPA 리포지토리로 변경](#스프링-데이터-JPA-리포지토리로-변경)**
+  * **[사용자 정의 리포지토리](#사용자-정의-리포지토리)**
 
 ## H2 데이터베이스 설치
 개발이나 테스트 용도로 가볍고 편리한 DB, 웹 화면 제공
@@ -1469,3 +1471,161 @@ public class MemberController {
 - `http://localhost:8080/v1/members?teamName=teamB&ageGoe=31&ageLoe=35`
 
 ## 실무 활용 - 스프링 데이터 JPA와 Querydsl
+### 스프링 데이터 JPA 리포지토리로 변경   
+__스프링 데이터 JPA - MemberRepository 생성__   
+```java
+package study.querydsl.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import study.querydsl.entity.Member;
+
+import java.util.List;
+
+public interface MemberRepository extends JpaRepository<Member, Long> {
+    //select m from Member m where m.username = ?
+    List<Member> findByUsername(String username);
+}
+```
+__스프링 데이터 JPA 테스트__   
+```java
+package study.querydsl.repository;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import study.querydsl.entity.Member;
+
+import javax.persistence.EntityManager;
+import javax.transaction.Transactional;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+@Transactional
+class MemberRepositoryTest {
+
+    @Autowired
+    EntityManager em;
+
+    @Autowired
+    MemberRepository memberRepository;
+
+    @Test
+    public void basicTest() {
+        Member member = new Member("member1", 10);
+        memberRepository.save(member);
+
+        Member findMember = memberRepository.findById(member.getId()).get();
+        assertThat(findMember).isEqualTo(member);
+
+        List<Member> result1 = memberRepository.findAll();
+        assertThat(result1).containsExactly(member);
+
+        List<Member> result2 = memberRepository.findByUsername("member1");
+        assertThat(result2).containsExactly(member);
+    }
+}
+```
+- Querydsl 전용 기능인 회원 search를 작성할 수 없다. 사용자 정의 리포지토리 필요
+
+### 사용자 정의 리포지토리
+__사용자 정의 리포지토리 사용법__   
+1. 사용자 정의 인터페이스 작성
+2. 사용자 정의 인터페이스 구현
+3. 스프링 데이터 리포지토리에 사용자 정의 인터페이스 상속
+
+__사용자 정의 리포지토리 구성__   
+![image](https://user-images.githubusercontent.com/31242766/209428593-22f07fbd-11c8-48d7-a875-cff9d6d12116.png)    
+
+__1. 사용자 정의 인터페이스 작성__   
+```java
+package study.querydsl.repository;
+
+import study.querydsl.dto.MemberSearchCondition;
+import study.querydsl.dto.MemberTeamDto;
+
+import java.util.List;
+
+public interface MemberRepositoryCustom {
+    List<MemberTeamDto> search(MemberSearchCondition condition);
+}
+```
+__2. 사용자 정의 인터페이스 구현__
+```java
+package study.querydsl.repository;
+
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import study.querydsl.dto.MemberSearchCondition;
+import study.querydsl.dto.MemberTeamDto;
+import study.querydsl.dto.QMemberTeamDto;
+
+import javax.persistence.EntityManager;
+import java.util.List;
+
+import static org.springframework.util.StringUtils.hasText;
+import static study.querydsl.entity.QMember.member;
+import static study.querydsl.entity.QTeam.team;
+
+public class MemberRepositoryImpl implements MemberRepositoryCustom {
+
+    private final JPAQueryFactory queryFactory;
+
+    public MemberRepositoryImpl(EntityManager em) {
+        this.queryFactory = new JPAQueryFactory(em);
+    }
+
+    @Override
+    public List<MemberTeamDto> search(MemberSearchCondition condition) {
+        return queryFactory
+            .select(new QMemberTeamDto(
+                    member.id.as("memberId"),
+                    member.username,
+                    member.age,
+                    team.id.as("teamId"),
+                    team.name.as("teamName")
+            ))
+            .from(member)
+            .leftJoin(member.team, team)
+            .where(
+                    usernameEq(condition.getUsername()),
+                    teamNameEq(condition.getTeamName()),
+                    ageGoe(condition.getAgeGoe()),
+                    ageLoe(condition.getAgeLoe())
+            )
+            .fetch();
+    }
+
+    private BooleanExpression usernameEq(String username) {
+        return hasText(username) ? member.username.eq(username) : null;
+    }
+
+    private BooleanExpression teamNameEq(String teamName) {
+        return hasText(teamName) ? team.name.eq(teamName) : null;
+    }
+
+    private BooleanExpression ageGoe(Integer ageGoe) {
+        return ageGoe != null ? member.age.goe(ageGoe) : null;
+    }
+
+    private BooleanExpression ageLoe(Integer ageLoe) {
+        return ageLoe != null ? member.age.loe(ageLoe) : null;
+    }
+}
+```
+__3. 스프링 데이터 리포지토리에 사용자 정의 인터페이스 상속__
+```java
+package study.querydsl.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import study.querydsl.entity.Member;
+
+import java.util.List;
+
+public interface MemberRepository extends JpaRepository<Member, Long>, MemberRepositoryCustom {
+    //select m from Member m where m.username = ?
+    List<Member> findByUsername(String username);
+}
+```
