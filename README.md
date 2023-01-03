@@ -35,6 +35,11 @@
   * **[스프링 데이터 페이징 활용1 - Querydsl 페이징 연동](#스프링-데이터-페이징-활용1---Querydsl-페이징-연동)**
   * **[스프링 데이터 페이징 활용2 - CountQuery 최적화](#스프링-데이터-페이징-활용2---CountQuery-최적화)**
   * **[스프링 데이터 페이징 활용3 - 컨트롤러 개발](#스프링-데이터-페이징-활용3---컨트롤러-개발)**
+* **[스프링 데이터 JPA가 제공하는 Querydsl 기능](#스프링-데이터-JPA가-제공하는-Querydsl-기능)**
+  * **[인터페이스 지원 - QuerydslPredicateExecutor](#인터페이스-지원---QuerydslPredicateExecutor)**
+  * **[Querydsl Web 지원](#Querydsl-Web-지원)**
+  * **[리포지토리 지원 - QuerydslRepositorySupport](#리포지토리-지원---QuerydslRepositorySupport)**
+  * **[Querydsl 지원 클래스 직접 만들기](#Querydsl-지원-클래스-직접-만들기)**
 
 ## H2 데이터베이스 설치
 개발이나 테스트 용도로 가볍고 편리한 DB, 웹 화면 제공
@@ -1863,3 +1868,81 @@ for (Sort.Order o : pageable.getSort()) {
 List<Member> result = query.fetch();
 ```
 > 참고: 정렬(`Sort`)은 조건이 조금만 복잡해져도 `Pageable` 의 `Sort` 기능을 사용하기 어렵다. 루트 엔티티 범위를 넘어가는 동적 정렬 기능이 필요하면 스프링 데이터 페이징이 제공하는 `Sort` 를 사용하기 보다는 파라미터를 받아서 직접 처리하는 것을 권장한다.
+
+## 스프링 데이터 JPA가 제공하는 Querydsl 기능
+여기서 소개하는 기능은 제약이 커서 복잡한 실무 환경에서 사용하기에는 많이 부족하다. 그래도 스프링 데이터에서 제공하는 기능이므로 간단히 소개하고, 왜 부족한지 설명한다.
+### 인터페이스 지원 - QuerydslPredicateExecutor
+공식 URL: https://docs.spring.io/spring-data/jpa/docs/2.2.3.RELEASE/reference/html/#core.extensions.querydsl
+
+__QuerydslPredicateExecutor 인터페이스__
+```java
+public interface QuerydslPredicateExecutor<T> {
+  Optional<T> findById(Predicate predicate); 
+  Iterable<T> findAll(Predicate predicate); 
+  long count(Predicate predicate); 
+  boolean exists(Predicate predicate); 
+  // … more functionality omitted.
+}
+```
+__리포지토리에 적용__
+```java
+public interface MemberRepository extends JpaRepository<Member, Long>, MemberRepositoryCustom
+        , QuerydslPredicateExecutor<Member> {
+}        
+```
+__테스트__
+```java
+@Test
+public void querydslPredicateExecutorTest() {
+    Team teamA = new Team("teamA");
+    Team teamB = new Team("teamB");
+    em.persist(teamA);
+    em.persist(teamB);
+
+    Member member1 = new Member("member1", 10, teamA);
+    Member member2 = new Member("member2", 20, teamA);
+
+    Member member3 = new Member("member3", 30, teamB);
+    Member member4 = new Member("member4", 40, teamB);
+    em.persist(member1);
+    em.persist(member2);
+    em.persist(member3);
+    em.persist(member4);
+
+    QMember member = QMember.member;
+    Iterable<Member> result = memberRepository.findAll(member.age.between(10, 40).and(member.username.eq("member1")));
+    for(Member findMember : result) {
+        System.out.println("member1 = " + findMember);
+    }
+}
+```
+__한계점__
+- 조인X (묵시적 조인은 가능하지만 left join이 불가능하다.) 하나의 테이블에서만 할 수 있는 것이 거의 없다. 
+- 클라이언트가 Querydsl에 의존해야 한다. 서비스 클래스가 Querydsl이라는 구현 기술에 의존해야 한다. 무슨 이야기냐면, `Controller` 또는 `Service` 계층에서 `Repository` 를 호출할 텐데 현재 `findAll` 에 넘겨야하는 것이 `Predicate` 이다. `Repository` 를 만드는 이유는 `Repository` 하부에 Querydsl 과 같은 기술들을 숨기기 위해서이다. 그래야 다음에 Querydsl 을 빼거나 다른 것으로 바꿀 떄 하부만 수정하여 쉽게 바꿀 수 있기 떄문이다. 이렇게 되는 경우에는 `Controller`, `Service`를 바꾸기가 난감하다. 의존 관계가 생기기 때문이다. `Dto 처럼 순수한 파라미터를 넘기는 것이 좋은 구조이다.`
+- 복잡한 실무환경에서 사용하기에는 한계가 명확하다.
+
+> 참고 : `QuerydslPredicateExecutor` 는 Pagable, Sort를 모두 지원하고 정상 동작한다.
+
+### Querydsl Web 지원
+공식 URL: https://docs.spring.io/spring-data/jpa/docs/2.2.3.RELEASE/reference/html/#core.web.type-safe
+
+__한계점__
+- 단순한 조건만 가능
+- 조건을 커스텀하는 기능이 복잡하고 명시적이지 않음
+- 컨트롤러가 Querydsl에 의존
+- 복잡한 실무환경에서 사용하기에는 한계가 명확
+
+### 리포지토리 지원 - QuerydslRepositorySupport
+__장점__
+- `getQuerydsl().applyPagination()` 스프링 데이터가 제공하는 페이징을 Querydsl로 편리하게 변환 가능(단! Sort는 오류발생)
+- `from()` 으로 시작 가능(최근에는 QueryFactory를 사용해서 `select()` 로 시작하는 것이 더 명시적)
+- EntityManager 제공
+
+__한계__
+- Querydsl 3.x 버전을 대상으로 만듬
+- Querydsl 4.x에 나온 JPAQueryFactory로 시작할 수 없음
+- select로 시작할 수 없음 (from으로 시작해야함)
+- `QueryFactory` 를 제공하지 않음
+- 스프링 데이터 Sort 기능이 정상 동작하지 않음
+
+### Querydsl 지원 클래스 직접 만들기
