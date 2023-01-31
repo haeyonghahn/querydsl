@@ -1,5 +1,5 @@
 # querydsl
-해당 문서는 [실전! Querydsl](https://www.inflearn.com/course/querydsl-%EC%8B%A4%EC%A0%84) 토대로 작성되었습니다.
+해당 문서 출처는 [실전! Querydsl](https://www.inflearn.com/course/querydsl-%EC%8B%A4%EC%A0%84) 토대로 작성되었습니다.
 ## 목차
 * **[H2 데이터베이스 설치](#H2-데이터베이스-설치)**
 * **[기본 문법](#기본-문법)**
